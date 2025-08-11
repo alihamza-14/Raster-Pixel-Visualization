@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <title>Tree & Shrub Predictions Map</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -13,31 +13,115 @@
   <script src="https://unpkg.com/georaster-layer-for-leaflet"></script>
 
   <style>
-    #map { height: 100vh; }
-    .legend {
-      background: white;
-      padding: 6px;
-      font-size: 12px;
-      line-height: 18px;
-      color: #333;
-      border-radius: 4px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
     }
+    
+    #map { 
+      height: 100vh;
+      width: 100vw;
+    }
+    
+    /* Improved Legend */
+    .legend {
+      background: rgba(255, 255, 255, 0.9);
+      padding: 12px;
+      font-size: 14px;
+      line-height: 1.4;
+      color: #333;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      max-width: 200px;
+    }
+    
     .legend-title {
       font-weight: bold;
-      margin-bottom: 4px;
+      margin-bottom: 8px;
+      font-size: 16px;
+      color: #2c3e50;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 4px;
     }
+    
+    .legend-item {
+      margin-bottom: 10px;
+    }
+    
     .gradient-bar {
-      height: 10px;
+      height: 12px;
       width: 100%;
-      margin-bottom: 4px;
-      border: 1px solid #ccc;
+      margin: 4px 0;
+      border-radius: 4px;
+      border: 1px solid #ddd;
     }
+    
     .legend-scale {
       display: flex;
       justify-content: space-between;
-      margin-top: -8px;
-      font-size: 10px;
+      font-size: 11px;
+      color: #555;
+    }
+    
+    .legend-label {
+      font-size: 13px;
+      margin-top: 2px;
+      font-weight: 500;
+    }
+    
+    /* Enhanced Popup */
+    .leaflet-popup-content {
+      margin: 12px;
+      min-width: 180px;
+    }
+    
+    .leaflet-popup-content-wrapper {
+      border-radius: 8px;
+      box-shadow: 0 3px 14px rgba(0,0,0,0.2);
+    }
+    
+    .popup-title {
+      font-weight: bold;
+      margin-bottom: 8px;
+      color: #2c3e50;
+      font-size: 15px;
+    }
+    
+    .popup-value {
+      margin: 6px 0;
+      padding: 4px 0;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .popup-value:last-child {
+      border-bottom: none;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .legend {
+        padding: 8px;
+        font-size: 12px;
+      }
+      
+      .legend-title {
+        font-size: 14px;
+      }
+      
+      .leaflet-control-layers {
+        max-width: 90vw;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .legend {
+        max-width: 150px;
+      }
+      
+      .legend-scale {
+        font-size: 10px;
+      }
     }
   </style>
 </head>
@@ -48,16 +132,19 @@
 const shrubUrl = "./shrub-predict_RF_Mod9_S2_S1_PALSAR-2.tif";
 const treeUrl = "./tree-predict_Mod12_S2_PALSAR-2_RCM.tif";
 
-// Set initial view to your specified coordinates with zoom level 10
+// Set initial view to your specified coordinates with zoom level 12
 const map = L.map('map').setView([51.74446481475288, -103.36212146115797], 12);
 
 // Define base maps
 const baseMaps = {
-  "OpenStreetMap": L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap'
-  }),
   "Satellite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
     attribution: 'Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+  }),
+  "Street Map": L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }),
+  "Terrain": L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/terrain/{z}/{x}/{y}.png', {
+    attribution: 'Map tiles by Stamen Design, under CC BY 3.0. Data by OpenStreetMap, under ODbL'
   })
 };
 
@@ -102,13 +189,16 @@ Promise.all([
   loadRaster(treeUrl, "Tree Prediction", "red", 0.009492, 0.394841)
 ]).then(() => {
   // Add layers control with both base maps and overlays
-  L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(map);
+  L.control.layers(baseMaps, overlayMaps, { 
+    collapsed: false,
+    position: 'topright'
+  }).addTo(map);
 
   Object.values(overlayMaps).forEach(layer => layer.addTo(map));
 
   map.on("click", e => {
     const latlng = e.latlng;
-    let popupContent = "";
+    let popupContent = `<div class="popup-title">Vegetation Predictions</div>`;
 
     rasterData.forEach(r => {
         try {
@@ -116,57 +206,73 @@ Promise.all([
             const x = Math.floor((latlng.lng - georaster.xmin) / georaster.pixelWidth);
             const y = Math.floor((georaster.ymax - latlng.lat) / georaster.pixelHeight);
             
+            let valueDisplay = '';
             if (x >= 0 && y >= 0 && x < georaster.width && y < georaster.height) {
                 const value = georaster.values[0][y][x];
                 if (value !== null && !isNaN(value)) {
                     const percent = (value * 100).toFixed(1);
-                    popupContent += `<b>${r.label}:</b> ${value.toFixed(4)} (${percent}%)<br>`;
+                    valueDisplay = `${value.toFixed(4)} (${percent}%)`;
                 } else {
-                    popupContent += `<b>${r.label}:</b> No data<br>`;
+                    valueDisplay = 'No data';
                 }
             } else {
-                popupContent += `<b>${r.label}:</b> Outside bounds<br>`;
+                valueDisplay = 'Outside bounds';
             }
+            
+            popupContent += `
+              <div class="popup-value">
+                <strong>${r.label}:</strong><br>
+                ${valueDisplay}
+              </div>
+            `;
         } catch (error) {
             console.error(`Error with ${r.label}:`, error);
-            popupContent += `<b>${r.label}:</b> Error reading data<br>`;
+            popupContent += `
+              <div class="popup-value">
+                <strong>${r.label}:</strong><br>
+                Error reading data
+              </div>
+            `;
         }
     });
 
-    if (popupContent) {
-        L.popup()
-            .setLatLng(latlng)
-            .setContent(popupContent)
-            .openOn(map);
-    }
+    L.popup()
+        .setLatLng(latlng)
+        .setContent(popupContent)
+        .openOn(map);
   });
 
-  // Improved Legend
+  // Enhanced Legend
   const legend = L.control({ position: 'bottomright' });
   legend.onAdd = function () {
     const div = L.DomUtil.create('div', 'legend');
     div.innerHTML = `
-      <div class="legend-title">Predictions Legend</div>
-      <div style="margin-bottom: 5px;">
-        <div class="gradient-bar" style="background: linear-gradient(to right, rgba(255,255,255,0.7), rgba(0,255,0,0.7));"></div>
+      <div class="legend-title">Vegetation Predictions</div>
+      <div class="legend-item">
+        <div class="gradient-bar" style="background: linear-gradient(to right, rgba(255,255,255,0.7), rgba(0,180,0,0.7));"></div>
         <div class="legend-scale">
-          <span>${rasterData[0].minVal.toFixed(2)}</span>
-          <span>${rasterData[0].maxVal.toFixed(2)}</span>
+          <span>Low (${rasterData[0].minVal.toFixed(2)})</span>
+          <span>High (${rasterData[0].maxVal.toFixed(2)})</span>
         </div>
-        <span>Shrub Prediction</span>
+        <div class="legend-label">Shrub Coverage</div>
       </div>
-      <div>
-        <div class="gradient-bar" style="background: linear-gradient(to right, rgba(255,255,255,0.7), rgba(255,0,0,0.7));"></div>
+      <div class="legend-item">
+        <div class="gradient-bar" style="background: linear-gradient(to right, rgba(255,255,255,0.7), rgba(180,0,0,0.7));"></div>
         <div class="legend-scale">
-          <span>${rasterData[1].minVal.toFixed(2)}</span>
-          <span>${rasterData[1].maxVal.toFixed(2)}</span>
+          <span>Low (${rasterData[1].minVal.toFixed(2)})</span>
+          <span>High (${rasterData[1].maxVal.toFixed(2)})</span>
         </div>
-        <span>Tree Prediction</span>
+        <div class="legend-label">Tree Coverage</div>
       </div>
     `;
     return div;
   };
   legend.addTo(map);
+  
+  // Handle window resize
+  window.addEventListener('resize', () => {
+    map.invalidateSize();
+  });
 });
 </script>
 </body>
