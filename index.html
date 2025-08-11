@@ -142,9 +142,6 @@ const baseMaps = {
   }),
   "Street Map": L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap'
-  }),
-  "Terrain": L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/terrain/{z}/{x}/{y}.png', {
-    attribution: 'Map tiles by Stamen Design, under CC BY 3.0. Data by OpenStreetMap, under ODbL'
   })
 };
 
@@ -198,7 +195,7 @@ Promise.all([
 
   map.on("click", e => {
     const latlng = e.latlng;
-    let popupContent = `<div class="popup-title">Vegetation Predictions</div>`;
+    let popupContent = `<div class="popup-title">Woody Cover Predictions</div>`;
 
     rasterData.forEach(r => {
         try {
@@ -247,7 +244,7 @@ Promise.all([
   legend.onAdd = function () {
     const div = L.DomUtil.create('div', 'legend');
     div.innerHTML = `
-      <div class="legend-title">Vegetation Predictions</div>
+      <div class="legend-title">Woody Cover Predictions</div>
       <div class="legend-item">
         <div class="gradient-bar" style="background: linear-gradient(to right, rgba(255,255,255,0.7), rgba(0,180,0,0.7));"></div>
         <div class="legend-scale">
