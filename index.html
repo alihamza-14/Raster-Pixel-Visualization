@@ -23,6 +23,77 @@
       height: 100vh;
       width: 100vw;
     }
+
+    /* --- Professional Top Bar Title --- */
+    .topbar-title {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      z-index: 2000;
+      background: rgba(21, 123, 69, 0.952); /* Less opaque, deep blue */
+      box-shadow: 0 2px 12px #2c3e5012;
+      /* border-bottom: 1px solid #e0e0e0; */
+      padding: 0;
+      margin: 0;
+      height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(2px);
+    }
+    .topbar-title-content {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fcf8f7;
+      letter-spacing: 0.5px;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.13);
+      padding: 0 24px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      background: transparent; /* Remove any background */
+      border-radius: 0;
+    }
+    @media (max-width: 768px) {
+      .topbar-title {
+        height: 44px;
+      }
+      .topbar-title-content {
+        font-size: 1.05rem;
+        padding: 0 10px;
+      }
+    }
+    @media (max-width: 480px) {
+      .topbar-title {
+        height: 38px;
+      }
+      .topbar-title-content {
+        font-size: 0.98rem;
+        padding: 0 4px;
+      }
+    }
+    /* Adjust map for topbar */
+    #map {
+      height: calc(100vh - 54px);
+      width: 100vw;
+      position: absolute;
+      top: 54px;
+      left: 0;
+    }
+    @media (max-width: 768px) {
+      #map {
+        height: calc(100vh - 44px);
+        top: 44px;
+      }
+    }
+    @media (max-width: 480px) {
+      #map {
+        height: calc(100vh - 38px);
+        top: 38px;
+      }
+    }
     
     /* Improved Legend */
     .legend {
@@ -123,9 +194,18 @@
         font-size: 10px;
       }
     }
+
+    /* Page Title Styles */
+    
+
+    
   </style>
 </head>
 <body>
+<!-- Professional Top Bar Title -->
+<div class="topbar-title">
+  <span class="topbar-title-content">Woody Cover Prediction: Foam Lake</span>
+</div>
 <div id="map"></div>
 
 <script>
