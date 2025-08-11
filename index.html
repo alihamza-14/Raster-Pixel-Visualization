@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Tree & Shrub Predictions Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script src="https://unpkg.com/geotiff"></script>
+  <script src="https://unpkg.com/georaster"></script>
+  <script src="https://unpkg.com/georaster-layer-for-leaflet"></script>
+
+  <style>
+    #map { height: 100vh; }
+    .legend {
+      background: white;
+      padding: 6px;
+      font-size: 12px;
+      line-height: 18px;
+      color: #333;
+      border-radius: 4px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+    .legend-title {
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .gradient-bar {
+      height: 10px;
+      width: 100%;
+      margin-bottom: 4px;
+      border: 1px solid #ccc;
+    }
+    .legend-scale {
+      display: flex;
+      justify-content: space-between;
+      margin-top: -8px;
+      font-size: 10px;
+    }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+
+<script>
+const shrubUrl = "./shrub-predict_RF_Mod9_S2_S1_PALSAR-2.tif";
+const treeUrl = "./tree-predict_Mod12_S2_PALSAR-2_RCM.tif";
+
+// Set initial view to your specified coordinates with zoom level 10
+const map = L.map('map').setView([51.74446481475288, -103.36212146115797], 12);
+
+// Define base maps
+const baseMaps = {
+  "OpenStreetMap": L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }),
+  "Satellite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+  })
+};
+
+// Add default base map (Satellite)
+baseMaps["Satellite"].addTo(map);
+
+let overlayMaps = {};
+let rasterData = [];
+
+function loadRaster(url, label, colorType, minVal, maxVal) {
+  return fetch(url)
+    .then(res => res.arrayBuffer())
+    .then(arrayBuffer => parseGeoraster(arrayBuffer))
+    .then(georaster => {
+      const layer = new GeoRasterLayer({
+        georaster: georaster,
+        opacity: 0.8,
+        pixelValuesToColorFn: values => {
+          const v = values[0];
+          if (v === null || isNaN(v)) return null;
+          const norm = Math.max(0, Math.min(1, (v - minVal) / (maxVal - minVal)));
+          
+          // Create smooth gradient colors to match legend
+          if (colorType === "green") {
+            const green = Math.round(norm * 255);
+            return `rgba(0,${green},0,0.7)`;
+          } else if (colorType === "red") {
+            const red = Math.round(norm * 255);
+            return `rgba(${red},0,0,0.7)`;
+          }
+        },
+        resolution: 256 // Better rendering
+      });
+
+      overlayMaps[label] = layer;
+      rasterData.push({ label, georaster, layer, minVal, maxVal });
+    });
+}
+
+Promise.all([
+  loadRaster(shrubUrl, "Shrub Prediction", "green", 0.013336, 0.20085),
+  loadRaster(treeUrl, "Tree Prediction", "red", 0.009492, 0.394841)
+]).then(() => {
+  // Add layers control with both base maps and overlays
+  L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(map);
+
+  Object.values(overlayMaps).forEach(layer => layer.addTo(map));
+
+  map.on("click", e => {
+    const latlng = e.latlng;
+    let popupContent = "";
+
+    rasterData.forEach(r => {
+        try {
+            const georaster = r.georaster;
+            const x = Math.floor((latlng.lng - georaster.xmin) / georaster.pixelWidth);
+            const y = Math.floor((georaster.ymax - latlng.lat) / georaster.pixelHeight);
+            
+            if (x >= 0 && y >= 0 && x < georaster.width && y < georaster.height) {
+                const value = georaster.values[0][y][x];
+                if (value !== null && !isNaN(value)) {
+                    const percent = (value * 100).toFixed(1);
+                    popupContent += `<b>${r.label}:</b> ${value.toFixed(4)} (${percent}%)<br>`;
+                } else {
+                    popupContent += `<b>${r.label}:</b> No data<br>`;
+                }
+            } else {
+                popupContent += `<b>${r.label}:</b> Outside bounds<br>`;
+            }
+        } catch (error) {
+            console.error(`Error with ${r.label}:`, error);
+            popupContent += `<b>${r.label}:</b> Error reading data<br>`;
+        }
+    });
+
+    if (popupContent) {
+        L.popup()
+            .setLatLng(latlng)
+            .setContent(popupContent)
+            .openOn(map);
+    }
+  });
+
+  // Improved Legend
+  const legend = L.control({ position: 'bottomright' });
+  legend.onAdd = function () {
+    const div = L.DomUtil.create('div', 'legend');
+    div.innerHTML = `
+      <div class="legend-title">Predictions Legend</div>
+      <div style="margin-bottom: 5px;">
+        <div class="gradient-bar" style="background: linear-gradient(to right, rgba(255,255,255,0.7), rgba(0,255,0,0.7));"></div>
+        <div class="legend-scale">
+          <span>${rasterData[0].minVal.toFixed(2)}</span>
+          <span>${rasterData[0].maxVal.toFixed(2)}</span>
+        </div>
+        <span>Shrub Prediction</span>
+      </div>
+      <div>
+        <div class="gradient-bar" style="background: linear-gradient(to right, rgba(255,255,255,0.7), rgba(255,0,0,0.7));"></div>
+        <div class="legend-scale">
+          <span>${rasterData[1].minVal.toFixed(2)}</span>
+          <span>${rasterData[1].maxVal.toFixed(2)}</span>
+        </div>
+        <span>Tree Prediction</span>
+      </div>
+    `;
+    return div;
+  };
+  legend.addTo(map);
+});
+</script>
+</body>
+</html>
