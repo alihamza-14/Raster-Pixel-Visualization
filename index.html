@@ -251,7 +251,7 @@ const shrubUrl = "./shrub-predict_RF_Mod9_S2_S1_PALSAR-2.tif";
 const treeUrl = "./tree-predict_Mod12_S2_PALSAR-2_RCM.tif";
 
 // Set initial view to your specified coordinates with zoom level 12
-const map = L.map('map').setView([51.74446481475288, -103.36212146115797], 12);
+const map = L.map('map', {maxZoom:19}).setView([51.74446481475288, -103.36212146115797], 12);
 
 // Define base maps
 const baseMaps = {
