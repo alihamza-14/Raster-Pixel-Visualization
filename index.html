@@ -249,6 +249,7 @@
 <script>
 const shrubUrl = "./shrub-predict_RF_Mod9_S2_S1_PALSAR-2.tif";
 const treeUrl = "./tree-predict_Mod12_S2_PALSAR-2_RCM.tif";
+const waterUrl = "./water.geojson"; // Add your water GeoJSON path here
 
 // Set initial view to your specified coordinates with zoom level 12
 const map = L.map('map', {maxZoom:19}).setView([51.74446481475288, -103.36212146115797], 12);
@@ -268,6 +269,7 @@ baseMaps["Satellite"].addTo(map);
 
 let overlayMaps = {};
 let rasterData = [];
+let waterLayer = null; // For water GeoJSON
 
 function loadRaster(url, label, colorType, minVal, maxVal) {
   return fetch(url)
@@ -285,7 +287,6 @@ function loadRaster(url, label, colorType, minVal, maxVal) {
           // Yellow gradient for shrub, red for tree
           if (colorType === "green") {
             // Yellow gradient: light yellow to deep yellow-orange
-            // Example: rgba(255,255,153,...) to rgba(255,153,0,...)
             const r = 255;
             const g = Math.round(255 - norm * (255 - 153));
             const b = Math.round(153 - norm * (153 - 0));
@@ -303,9 +304,27 @@ function loadRaster(url, label, colorType, minVal, maxVal) {
     });
 }
 
+// Load water GeoJSON as a blue polygon layer
+function loadWaterLayer() {
+  return fetch(waterUrl)
+    .then(res => res.json())
+    .then(geojson => {
+      waterLayer = L.geoJSON(geojson, {
+        style: {
+          color: "#2176d9",
+          weight: 1.5,
+          fillColor: "#4fc3f7",
+          fillOpacity: 0.7
+        }
+      });
+      overlayMaps["Water"] = waterLayer;
+    });
+}
+
 Promise.all([
   loadRaster(shrubUrl, "Shrub Prediction", "green", 0.013336, 0.20085),
-  loadRaster(treeUrl, "Tree Prediction", "red", 0.009492, 0.394841)
+  loadRaster(treeUrl, "Tree Prediction", "red", 0.009492, 0.394841),
+  loadWaterLayer()
 ]).then(() => {
   // Add layers control with both base maps and overlays
   L.control.layers(baseMaps, overlayMaps, { 
@@ -355,6 +374,24 @@ Promise.all([
         }
     });
 
+    // Check if clicked point is in water
+    if (waterLayer && waterLayer.getLayers().length > 0) {
+      let found = false;
+      waterLayer.eachLayer(function(layer) {
+        if (layer.getBounds && layer.getBounds().contains(latlng)) {
+          found = true;
+        }
+      });
+      if (found) {
+        popupContent += `
+          <div class="popup-value">
+            <strong>Water:</strong><br>
+            Water Body
+          </div>
+        `;
+      }
+    }
+
     L.popup()
         .setLatLng(latlng)
         .setContent(popupContent)
@@ -383,6 +420,10 @@ Promise.all([
             <span>High (${rasterData[1].maxVal.toFixed(2)})</span>
           </div>
           <div class="legend-label">Tree Coverage</div>
+        </div>
+        <div class="legend-item">
+          <div class="gradient-bar" style="background: linear-gradient(to right, #4fc3f7, #2176d9); height: 14px;"></div>
+          <div class="legend-label" style="margin-top:4px;">Water</div>
         </div>
       </div>
     `;
