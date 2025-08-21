@@ -282,10 +282,14 @@ function loadRaster(url, label, colorType, minVal, maxVal) {
           if (v === null || isNaN(v)) return null;
           const norm = Math.max(0, Math.min(1, (v - minVal) / (maxVal - minVal)));
           
-          // Create smooth gradient colors to match legend
+          // Distinct color for shrub, red for tree
           if (colorType === "green") {
-            const green = Math.round(norm * 255);
-            return `rgba(0,${green},0,0.7)`;
+            // Use a blue-purple gradient for shrubs: light blue to deep purple
+            // Example: rgba(102,178,255,...) to rgba(102,0,204,...)
+            const r = Math.round(102);
+            const g = Math.round(178 - norm * (178 - 0));
+            const b = Math.round(255 - norm * (255 - 204));
+            return `rgba(${r},${g},${b},0.7)`;
           } else if (colorType === "red") {
             const red = Math.round(norm * 255);
             return `rgba(${red},0,0,0.7)`;
@@ -365,7 +369,7 @@ Promise.all([
       <div class="legend-title">Woody Cover Predictions</div>
       <div class="legend-items">
         <div class="legend-item">
-          <div class="gradient-bar" style="background: linear-gradient(to right, rgba(255,255,255,0.7), rgba(0,180,0,0.7));"></div>
+          <div class="gradient-bar" style="background: linear-gradient(to right, rgba(102,178,255,0.7), rgba(102,0,204,0.7));"></div>
           <div class="legend-scale">
             <span>Low (${rasterData[0].minVal.toFixed(2)})</span>
             <span>High (${rasterData[0].maxVal.toFixed(2)})</span>
